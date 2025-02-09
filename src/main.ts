@@ -1,15 +1,13 @@
-import { App, Stack, StackProps } from 'aws-cdk-lib';
+import { App, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
+import { BuildSpec, PipelineProject } from 'aws-cdk-lib/aws-codebuild';
 import { Artifact, Pipeline } from 'aws-cdk-lib/aws-codepipeline';
-import { EcrSourceAction, EcsDeployAction, StepFunctionInvokeAction } from 'aws-cdk-lib/aws-codepipeline-actions';
+import { CodeBuildAction, EcrSourceAction, EcsDeployAction, StepFunctionInvokeAction } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Repository } from 'aws-cdk-lib/aws-ecr';
-import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
 import { ContainerImage, PropagatedTagSource } from 'aws-cdk-lib/aws-ecs';
 import { ApplicationLoadBalancedFargateService } from 'aws-cdk-lib/aws-ecs-patterns';
 import { IntegrationPattern, StateMachine } from 'aws-cdk-lib/aws-stepfunctions';
 import { EcsFargateLaunchTarget, EcsRunTask } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { Construct } from 'constructs';
-import path from 'path';
-import * as ecrdeploy from 'cdk-ecr-deployment';
 
 export class MyStack extends Stack {
   constructor(scope: Construct, id: string, props: StackProps = {}) {
@@ -17,20 +15,13 @@ export class MyStack extends Stack {
 
     const ecrRepo = new Repository(this, 'webnodets-repo', {
       repositoryName: 'webnodets-repo',
-    });
-
-    const image = new DockerImageAsset(this, 'webnodets-image', {
-      directory: path.join(__dirname, 'docker'),
-    });
-
-    new ecrdeploy.ECRDeployment(this, 'DeployDockerImage', {
-      src: new ecrdeploy.DockerImageName(image.imageUri),
-      dest: new ecrdeploy.DockerImageName(`${props.env?.account}.dkr.ecr.${props.env?.region}.amazonaws.com/webnodets:latest`),
+      removalPolicy: RemovalPolicy.DESTROY
     });
 
     const srv = new ApplicationLoadBalancedFargateService(this, 'webnodets-service', {
       taskImageOptions: {
         image: ContainerImage.fromEcrRepository(ecrRepo),
+        containerName: 'webnodets-service',
       },
     });
 
@@ -39,6 +30,7 @@ export class MyStack extends Stack {
     });
 
     const sourceOutput = new Artifact();
+    const buildOutput = new Artifact('BuildOutput');
     
     pipeline.addStage({
       stageName: 'Source',
@@ -51,6 +43,39 @@ export class MyStack extends Stack {
        ],
     });
 
+    const buildProject = new PipelineProject(this, 'BuildProject', {
+      buildSpec: BuildSpec.fromObject({
+        version: '0.2',
+        phases: {
+          build: {
+            commands: [
+              'echo "[{\\"name\\":\\"webnodets-service\\",\\"imageUri\\":\\"$REPOSITORY_URI:latest\\"}]" > imagedefinitions.json'
+            ],
+          },
+        },
+        artifacts: {
+          files: 'imagedefinitions.json',
+        },
+      }),
+      environmentVariables: {
+        REPOSITORY_URI: {
+          value: ecrRepo.repositoryUri,
+        },
+      },
+    });
+
+    pipeline.addStage({
+      stageName: 'Build',
+      actions: [
+        new CodeBuildAction({
+          actionName: 'CodeBuild',
+          project: buildProject,
+          input: sourceOutput,
+          outputs: [buildOutput],
+        }),
+      ],
+    });
+
     const runTask = new EcsRunTask(this, 'RunFargate', {
       integrationPattern: IntegrationPattern.RUN_JOB,
       cluster: srv.cluster,
@@ -58,7 +83,7 @@ export class MyStack extends Stack {
       assignPublicIp: true,
       containerOverrides: [{
         containerDefinition: srv.taskDefinition.defaultContainer!,
-        environment: [{ name: 'type', value: "leader" }],
+        environment: [{ name: 'WORKER_TYPE', value: "leader" }],
       }],
       launchTarget: new EcsFargateLaunchTarget(),
       propagatedTagSource: PropagatedTagSource.TASK_DEFINITION,
@@ -85,7 +110,7 @@ export class MyStack extends Stack {
         new EcsDeployAction({
           actionName: 'DeployAction',
           service: srv.service,
-          input: sourceOutput,
+          input: buildOutput,
         }),
       ],
     });

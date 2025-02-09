@@ -8,7 +8,7 @@ const project = new awscdk.AwsCdkTypeScriptApp({
   context: {
     //"@aws-cdk/core:bootstrapQualifier": "app",
   },
-  deps: [ 'cdk-ecr-deployment']
+  //deps: [ 'cdk-ecr-deployment@3.0.153']
   // deps: [],                /* Runtime dependencies of this module. */
   // description: undefined,  /* The description is just a string that helps people understand the purpose of the package. */
   // devDeps: [],             /* Build dependencies for this module. */
