@@ -1,4 +1,4 @@
-import { App, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
+import { App, CfnOutput, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { BuildSpec, PipelineProject } from 'aws-cdk-lib/aws-codebuild';
 import { Artifact, Pipeline } from 'aws-cdk-lib/aws-codepipeline';
 import { CodeBuildAction, EcrSourceAction, EcsDeployAction, StepFunctionInvokeAction } from 'aws-cdk-lib/aws-codepipeline-actions';
@@ -113,6 +113,10 @@ export class MyStack extends Stack {
           input: buildOutput,
         }),
       ],
+    });
+
+    new CfnOutput(this, 'LoadBalancerDNS', {
+      value: `http://${srv.loadBalancer.loadBalancerDnsName}`
     });
   }
 }
