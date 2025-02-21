@@ -1,16 +1,16 @@
-import { App, Aspects, CfnOutput, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
+import { App, CfnOutput, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { BuildSpec, PipelineProject } from 'aws-cdk-lib/aws-codebuild';
 import { Artifact, Pipeline, PipelineType } from 'aws-cdk-lib/aws-codepipeline';
 import { CodeBuildAction, EcrSourceAction, EcsDeployAction, StepFunctionInvokeAction } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Repository } from 'aws-cdk-lib/aws-ecr';
 import { ContainerImage, FargateTaskDefinition, FirelensConfigFileType, FireLensLogDriver, FirelensLogRouterType, ICluster, PropagatedTagSource, TaskDefinition } from 'aws-cdk-lib/aws-ecs';
 import { ApplicationLoadBalancedFargateService } from 'aws-cdk-lib/aws-ecs-patterns';
+import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Asset } from 'aws-cdk-lib/aws-s3-assets';
 import { IntegrationPattern, StateMachine } from 'aws-cdk-lib/aws-stepfunctions';
 import { EcsFargateLaunchTarget, EcsRunTask } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { Construct } from 'constructs';
 import path from 'path';
-import { IAMResourcePatcherAspect } from './aspects';
 
 export class MyStack extends Stack {
   constructor(scope: Construct, id: string, props: StackProps = {}) {
@@ -141,6 +141,19 @@ export class MyStack extends Stack {
     const stateMachine = new StateMachine(this, 'StateMachine', {
       definition: runTask,
     });
+    stateMachine.addToRolePolicy(new PolicyStatement({
+      effect: Effect.ALLOW,
+      actions: [
+        'cloudwatch:PutManagedInsightRules',
+        'cloudwatch:DeleteInsightRules',
+        'cloudwatch:DescribeInsightRules',
+        'states:CreateManagedRule',
+        'states:DeleteManagedRule',
+        'states:DescribeManagedRule',
+        'states:ListManagedRules',
+      ],
+      resources: ['*']
+    }));
 
     pipeline.addStage({
       stageName: 'RunTask',
@@ -183,7 +196,7 @@ const devEnv = {
 };
 
 const app = new App();
-Aspects.of(app).add(new IAMResourcePatcherAspect());
+//Aspects.of(app).add(new IAMResourcePatcherAspect());
 
 new MyStack(app, 'webnodets-dev', { env: devEnv });
 // new MyStack(app, 'webnodets-prod', { env: prodEnv });
