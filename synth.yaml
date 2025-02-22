@@ -1,0 +1,1531 @@
+Resources:
+  webnodetsrepo25A495C6:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: webnodets-repo
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-repo/Resource
+  LogGroup106AAD846:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/myapp/stream1
+      RetentionInDays: 7
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: webnodets-dev/LogGroup1/Resource
+  webnodetsserviceLB7BA6DCDE:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      LoadBalancerAttributes:
+        - Key: deletion_protection.enabled
+          Value: "false"
+      Scheme: internet-facing
+      SecurityGroups:
+        - Fn::GetAtt:
+            - webnodetsserviceLBSecurityGroup96D15352
+            - GroupId
+      Subnets:
+        - Ref: EcsDefaultClusterMnL3mNNYNVpcPublicSubnet1Subnet3C273B99
+        - Ref: EcsDefaultClusterMnL3mNNYNVpcPublicSubnet2Subnet95FF715A
+      Type: application
+    DependsOn:
+      - EcsDefaultClusterMnL3mNNYNVpcPublicSubnet1DefaultRouteFF4E2178
+      - EcsDefaultClusterMnL3mNNYNVpcPublicSubnet1RouteTableAssociation8B583A17
+      - EcsDefaultClusterMnL3mNNYNVpcPublicSubnet2DefaultRouteB1375520
+      - EcsDefaultClusterMnL3mNNYNVpcPublicSubnet2RouteTableAssociation43E5803C
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-service/LB/Resource
+  webnodetsserviceLBSecurityGroup96D15352:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Automatically created Security Group for ELB webnodetsdevwebnodetsserviceLB5C260856
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          Description: Allow from anyone on port 80
+          FromPort: 80
+          IpProtocol: tcp
+          ToPort: 80
+      VpcId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpc7788A521
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-service/LB/SecurityGroup/Resource
+  webnodetsserviceLBSecurityGrouptowebnodetsdevwebnodetsserviceServiceSecurityGroup8DDA89FF800697B3A2:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      Description: Load balancer to target
+      DestinationSecurityGroupId:
+        Fn::GetAtt:
+          - webnodetsserviceServiceSecurityGroup4D9AC051
+          - GroupId
+      FromPort: 80
+      GroupId:
+        Fn::GetAtt:
+          - webnodetsserviceLBSecurityGroup96D15352
+          - GroupId
+      IpProtocol: tcp
+      ToPort: 80
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-service/LB/SecurityGroup/to webnodetsdevwebnodetsserviceServiceSecurityGroup8DDA89FF:80
+  webnodetsserviceLBPublicListener7A247BA1:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - TargetGroupArn:
+            Ref: webnodetsserviceLBPublicListenerECSGroupF1887235
+          Type: forward
+      LoadBalancerArn:
+        Ref: webnodetsserviceLB7BA6DCDE
+      Port: 80
+      Protocol: HTTP
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-service/LB/PublicListener/Resource
+  webnodetsserviceLBPublicListenerECSGroupF1887235:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 80
+      Protocol: HTTP
+      TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: "false"
+      TargetType: ip
+      VpcId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpc7788A521
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-service/LB/PublicListener/ECSGroup/Resource
+  webnodetsserviceTaskDefTaskRoleF9D06E8D:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-service/TaskDef/TaskRole/Resource
+  webnodetsserviceTaskDefTaskRoleDefaultPolicy870A99A1:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - logs:CreateLogStream
+              - logs:CreateLogGroup
+              - logs:DescribeLogStreams
+              - logs:PutLogEvents
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - LogGroup106AAD846
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - LogGroup106AAD846
+                        - Arn
+                    - :*
+        Version: "2012-10-17"
+      PolicyName: webnodetsserviceTaskDefTaskRoleDefaultPolicy870A99A1
+      Roles:
+        - Ref: webnodetsserviceTaskDefTaskRoleF9D06E8D
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-service/TaskDef/TaskRole/DefaultPolicy/Resource
+  webnodetsserviceTaskDefCCB9BF5E:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions:
+        - Essential: true
+          Image:
+            Fn::Join:
+              - ""
+              - - Fn::Select:
+                    - 4
+                    - Fn::Split:
+                        - ":"
+                        - Fn::GetAtt:
+                            - webnodetsrepo25A495C6
+                            - Arn
+                - .dkr.ecr.
+                - Fn::Select:
+                    - 3
+                    - Fn::Split:
+                        - ":"
+                        - Fn::GetAtt:
+                            - webnodetsrepo25A495C6
+                            - Arn
+                - "."
+                - Ref: AWS::URLSuffix
+                - /
+                - Ref: webnodetsrepo25A495C6
+                - :latest
+          LogConfiguration:
+            LogDriver: awsfirelens
+            Options:
+              Name: cloudwatch
+              region: eu-central-1
+              log_group_name: /aws/ecs/webnodets-service
+              log_stream_prefix: webnodets-prefix1
+              auto_create_group: "true"
+              log_key: log
+              path: /path/to/first/logfile.log
+          Name: webnodets-service
+          PortMappings:
+            - ContainerPort: 80
+              Protocol: tcp
+        - Essential: true
+          FirelensConfiguration:
+            Options:
+              enable-ecs-log-metadata: "true"
+              config-file-type: file
+              config-file-value: /fluent-bit/etc/fluent-bit.conf
+            Type: fluentbit
+          Image:
+            Fn::Sub: 345594579451.dkr.ecr.eu-central-1.${AWS::URLSuffix}/cdk-hnb659fds-container-assets-345594579451-eu-central-1:9c6f0c1f44ec2a17179f0c2b8c120aaee4f03cc2117306517b949807aa3f867e
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group:
+                Ref: FirelensLogGroupA55D58F8
+              awslogs-stream-prefix: firelens
+              awslogs-region: eu-central-1
+          MemoryReservation: 50
+          Name: FirelensLogRouter
+      Cpu: "256"
+      ExecutionRoleArn:
+        Fn::GetAtt:
+          - webnodetsserviceTaskDefExecutionRole0FF01F03
+          - Arn
+      Family: webnodetsdevwebnodetsserviceTaskDefF7E75AA5
+      Memory: "512"
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      TaskRoleArn:
+        Fn::GetAtt:
+          - webnodetsserviceTaskDefTaskRoleF9D06E8D
+          - Arn
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-service/TaskDef/Resource
+  webnodetsserviceTaskDefExecutionRole0FF01F03:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-service/TaskDef/ExecutionRole/Resource
+  webnodetsserviceTaskDefExecutionRoleDefaultPolicy6E0C78F5:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - ecr:BatchCheckLayerAvailability
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchGetImage
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - webnodetsrepo25A495C6
+                - Arn
+          - Action: ecr:GetAuthorizationToken
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - ecr:BatchCheckLayerAvailability
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchGetImage
+            Effect: Allow
+            Resource:
+              Fn::Join:
+                - ""
+                - - "arn:"
+                  - Ref: AWS::Partition
+                  - :ecr:eu-central-1:345594579451:repository/cdk-hnb659fds-container-assets-345594579451-eu-central-1
+          - Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - FirelensLogGroupA55D58F8
+                - Arn
+        Version: "2012-10-17"
+      PolicyName: webnodetsserviceTaskDefExecutionRoleDefaultPolicy6E0C78F5
+      Roles:
+        - Ref: webnodetsserviceTaskDefExecutionRole0FF01F03
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-service/TaskDef/ExecutionRole/DefaultPolicy/Resource
+  webnodetsserviceServiceB1AC4F01:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster:
+        Ref: EcsDefaultClusterMnL3mNNYN926A5246
+      DeploymentConfiguration:
+        Alarms:
+          AlarmNames: []
+          Enable: false
+          Rollback: false
+        MaximumPercent: 200
+        MinimumHealthyPercent: 50
+      DesiredCount: 1
+      EnableECSManagedTags: false
+      HealthCheckGracePeriodSeconds: 60
+      LaunchType: FARGATE
+      LoadBalancers:
+        - ContainerName: webnodets-service
+          ContainerPort: 80
+          TargetGroupArn:
+            Ref: webnodetsserviceLBPublicListenerECSGroupF1887235
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - Fn::GetAtt:
+                - webnodetsserviceServiceSecurityGroup4D9AC051
+                - GroupId
+          Subnets:
+            - Ref: EcsDefaultClusterMnL3mNNYNVpcPrivateSubnet1Subnet075EFF4C
+            - Ref: EcsDefaultClusterMnL3mNNYNVpcPrivateSubnet2SubnetE4CEDF73
+      TaskDefinition:
+        Ref: webnodetsserviceTaskDefCCB9BF5E
+    DependsOn:
+      - webnodetsserviceLBPublicListenerECSGroupF1887235
+      - webnodetsserviceLBPublicListener7A247BA1
+      - webnodetsserviceTaskDefTaskRoleDefaultPolicy870A99A1
+      - webnodetsserviceTaskDefTaskRoleF9D06E8D
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-service/Service/Service
+  webnodetsserviceServiceSecurityGroup4D9AC051:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: webnodets-dev/webnodets-service/Service/SecurityGroup
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic by default
+          IpProtocol: "-1"
+      VpcId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpc7788A521
+    DependsOn:
+      - webnodetsserviceTaskDefTaskRoleDefaultPolicy870A99A1
+      - webnodetsserviceTaskDefTaskRoleF9D06E8D
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-service/Service/SecurityGroup/Resource
+  webnodetsserviceServiceSecurityGroupfromwebnodetsdevwebnodetsserviceLBSecurityGroup1C479BF580106CA002:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Load balancer to target
+      FromPort: 80
+      GroupId:
+        Fn::GetAtt:
+          - webnodetsserviceServiceSecurityGroup4D9AC051
+          - GroupId
+      IpProtocol: tcp
+      SourceSecurityGroupId:
+        Fn::GetAtt:
+          - webnodetsserviceLBSecurityGroup96D15352
+          - GroupId
+      ToPort: 80
+    DependsOn:
+      - webnodetsserviceTaskDefTaskRoleDefaultPolicy870A99A1
+      - webnodetsserviceTaskDefTaskRoleF9D06E8D
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-service/Service/SecurityGroup/from webnodetsdevwebnodetsserviceLBSecurityGroup1C479BF5:80
+  EcsDefaultClusterMnL3mNNYN926A5246:
+    Type: AWS::ECS::Cluster
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Resource
+  EcsDefaultClusterMnL3mNNYNVpc7788A521:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/Resource
+  EcsDefaultClusterMnL3mNNYNVpcPublicSubnet1Subnet3C273B99:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: eu-central-1a
+      CidrBlock: 10.0.0.0/18
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: aws-cdk:subnet-name
+          Value: Public
+        - Key: aws-cdk:subnet-type
+          Value: Public
+        - Key: Name
+          Value: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PublicSubnet1
+      VpcId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpc7788A521
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PublicSubnet1/Subnet
+  EcsDefaultClusterMnL3mNNYNVpcPublicSubnet1RouteTableA1FD6ACC:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags:
+        - Key: Name
+          Value: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PublicSubnet1
+      VpcId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpc7788A521
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PublicSubnet1/RouteTable
+  EcsDefaultClusterMnL3mNNYNVpcPublicSubnet1RouteTableAssociation8B583A17:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpcPublicSubnet1RouteTableA1FD6ACC
+      SubnetId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpcPublicSubnet1Subnet3C273B99
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PublicSubnet1/RouteTableAssociation
+  EcsDefaultClusterMnL3mNNYNVpcPublicSubnet1DefaultRouteFF4E2178:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpcIGW9C2C2B8F
+      RouteTableId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpcPublicSubnet1RouteTableA1FD6ACC
+    DependsOn:
+      - EcsDefaultClusterMnL3mNNYNVpcVPCGW2447264E
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PublicSubnet1/DefaultRoute
+  EcsDefaultClusterMnL3mNNYNVpcPublicSubnet1EIP8704DB2F:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PublicSubnet1
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PublicSubnet1/EIP
+  EcsDefaultClusterMnL3mNNYNVpcPublicSubnet1NATGateway5E3732C1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+          - EcsDefaultClusterMnL3mNNYNVpcPublicSubnet1EIP8704DB2F
+          - AllocationId
+      SubnetId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpcPublicSubnet1Subnet3C273B99
+      Tags:
+        - Key: Name
+          Value: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PublicSubnet1
+    DependsOn:
+      - EcsDefaultClusterMnL3mNNYNVpcPublicSubnet1DefaultRouteFF4E2178
+      - EcsDefaultClusterMnL3mNNYNVpcPublicSubnet1RouteTableAssociation8B583A17
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PublicSubnet1/NATGateway
+  EcsDefaultClusterMnL3mNNYNVpcPublicSubnet2Subnet95FF715A:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: eu-central-1b
+      CidrBlock: 10.0.64.0/18
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: aws-cdk:subnet-name
+          Value: Public
+        - Key: aws-cdk:subnet-type
+          Value: Public
+        - Key: Name
+          Value: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PublicSubnet2
+      VpcId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpc7788A521
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PublicSubnet2/Subnet
+  EcsDefaultClusterMnL3mNNYNVpcPublicSubnet2RouteTable263DEAA5:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags:
+        - Key: Name
+          Value: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PublicSubnet2
+      VpcId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpc7788A521
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PublicSubnet2/RouteTable
+  EcsDefaultClusterMnL3mNNYNVpcPublicSubnet2RouteTableAssociation43E5803C:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpcPublicSubnet2RouteTable263DEAA5
+      SubnetId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpcPublicSubnet2Subnet95FF715A
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PublicSubnet2/RouteTableAssociation
+  EcsDefaultClusterMnL3mNNYNVpcPublicSubnet2DefaultRouteB1375520:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpcIGW9C2C2B8F
+      RouteTableId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpcPublicSubnet2RouteTable263DEAA5
+    DependsOn:
+      - EcsDefaultClusterMnL3mNNYNVpcVPCGW2447264E
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PublicSubnet2/DefaultRoute
+  EcsDefaultClusterMnL3mNNYNVpcPublicSubnet2EIPF0764873:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PublicSubnet2
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PublicSubnet2/EIP
+  EcsDefaultClusterMnL3mNNYNVpcPublicSubnet2NATGateway4C855E00:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+          - EcsDefaultClusterMnL3mNNYNVpcPublicSubnet2EIPF0764873
+          - AllocationId
+      SubnetId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpcPublicSubnet2Subnet95FF715A
+      Tags:
+        - Key: Name
+          Value: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PublicSubnet2
+    DependsOn:
+      - EcsDefaultClusterMnL3mNNYNVpcPublicSubnet2DefaultRouteB1375520
+      - EcsDefaultClusterMnL3mNNYNVpcPublicSubnet2RouteTableAssociation43E5803C
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PublicSubnet2/NATGateway
+  EcsDefaultClusterMnL3mNNYNVpcPrivateSubnet1Subnet075EFF4C:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: eu-central-1a
+      CidrBlock: 10.0.128.0/18
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: aws-cdk:subnet-name
+          Value: Private
+        - Key: aws-cdk:subnet-type
+          Value: Private
+        - Key: Name
+          Value: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PrivateSubnet1
+      VpcId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpc7788A521
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PrivateSubnet1/Subnet
+  EcsDefaultClusterMnL3mNNYNVpcPrivateSubnet1RouteTable4F1D2E36:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags:
+        - Key: Name
+          Value: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PrivateSubnet1
+      VpcId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpc7788A521
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PrivateSubnet1/RouteTable
+  EcsDefaultClusterMnL3mNNYNVpcPrivateSubnet1RouteTableAssociation34B92275:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpcPrivateSubnet1RouteTable4F1D2E36
+      SubnetId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpcPrivateSubnet1Subnet075EFF4C
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PrivateSubnet1/RouteTableAssociation
+  EcsDefaultClusterMnL3mNNYNVpcPrivateSubnet1DefaultRouteA5ADF694:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpcPublicSubnet1NATGateway5E3732C1
+      RouteTableId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpcPrivateSubnet1RouteTable4F1D2E36
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PrivateSubnet1/DefaultRoute
+  EcsDefaultClusterMnL3mNNYNVpcPrivateSubnet2SubnetE4CEDF73:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: eu-central-1b
+      CidrBlock: 10.0.192.0/18
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: aws-cdk:subnet-name
+          Value: Private
+        - Key: aws-cdk:subnet-type
+          Value: Private
+        - Key: Name
+          Value: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PrivateSubnet2
+      VpcId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpc7788A521
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PrivateSubnet2/Subnet
+  EcsDefaultClusterMnL3mNNYNVpcPrivateSubnet2RouteTableDCE46591:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags:
+        - Key: Name
+          Value: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PrivateSubnet2
+      VpcId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpc7788A521
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PrivateSubnet2/RouteTable
+  EcsDefaultClusterMnL3mNNYNVpcPrivateSubnet2RouteTableAssociation111C622F:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpcPrivateSubnet2RouteTableDCE46591
+      SubnetId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpcPrivateSubnet2SubnetE4CEDF73
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PrivateSubnet2/RouteTableAssociation
+  EcsDefaultClusterMnL3mNNYNVpcPrivateSubnet2DefaultRoute20CE2D89:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpcPublicSubnet2NATGateway4C855E00
+      RouteTableId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpcPrivateSubnet2RouteTableDCE46591
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/PrivateSubnet2/DefaultRoute
+  EcsDefaultClusterMnL3mNNYNVpcIGW9C2C2B8F:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/IGW
+  EcsDefaultClusterMnL3mNNYNVpcVPCGW2447264E:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpcIGW9C2C2B8F
+      VpcId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpc7788A521
+    Metadata:
+      aws:cdk:path: webnodets-dev/EcsDefaultClusterMnL3mNNYN/Vpc/VPCGW
+  FirelensLogGroupA55D58F8:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/firelens
+      RetentionInDays: 7
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: webnodets-dev/FirelensLogGroup/Resource
+  webnodetspipelineArtifactsBucketEncryptionKeyDE6A5439:
+    Type: AWS::KMS::Key
+    Properties:
+      KeyPolicy:
+        Statement:
+          - Action: kms:*
+            Effect: Allow
+            Principal:
+              AWS:
+                Fn::Join:
+                  - ""
+                  - - "arn:"
+                    - Ref: AWS::Partition
+                    - :iam::345594579451:root
+            Resource: "*"
+        Version: "2012-10-17"
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-pipeline/ArtifactsBucketEncryptionKey/Resource
+  webnodetspipelineArtifactsBucketEncryptionKeyAliasD1F82001:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/codepipeline-webnodetsdevwebnodetspipeline24e2d4fb
+      TargetKeyId:
+        Fn::GetAtt:
+          - webnodetspipelineArtifactsBucketEncryptionKeyDE6A5439
+          - Arn
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-pipeline/ArtifactsBucketEncryptionKeyAlias/Resource
+  webnodetspipelineArtifactsBucket9C3C0A45:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              KMSMasterKeyID:
+                Fn::GetAtt:
+                  - webnodetspipelineArtifactsBucketEncryptionKeyDE6A5439
+                  - Arn
+              SSEAlgorithm: aws:kms
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-pipeline/ArtifactsBucket/Resource
+  webnodetspipelineArtifactsBucketPolicy130E40F4:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: webnodetspipelineArtifactsBucket9C3C0A45
+      PolicyDocument:
+        Statement:
+          - Action: s3:*
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+            Effect: Deny
+            Principal:
+              AWS: "*"
+            Resource:
+              - Fn::GetAtt:
+                  - webnodetspipelineArtifactsBucket9C3C0A45
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - webnodetspipelineArtifactsBucket9C3C0A45
+                        - Arn
+                    - /*
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-pipeline/ArtifactsBucket/Policy/Resource
+  webnodetspipelineRole21E2C008:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-pipeline/Role/Resource
+  webnodetspipelineRoleDefaultPolicy74E3E6B6:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject
+              - s3:PutObjectLegalHold
+              - s3:PutObjectRetention
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+              - s3:Abort*
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - webnodetspipelineArtifactsBucket9C3C0A45
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - webnodetspipelineArtifactsBucket9C3C0A45
+                        - Arn
+                    - /*
+          - Action:
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:Encrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - webnodetspipelineArtifactsBucketEncryptionKeyDE6A5439
+                - Arn
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - webnodetspipelineSourceEcrSourceCodePipelineActionRole4E554C22
+                - Arn
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - webnodetspipelineBuildCodeBuildCodePipelineActionRole87A8C61F
+                - Arn
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - webnodetspipelineRunTaskInvokeStepFunctionCodePipelineActionRoleCE6CE958
+                - Arn
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - webnodetspipelineDeployDeployActionCodePipelineActionRole1680D265
+                - Arn
+        Version: "2012-10-17"
+      PolicyName: webnodetspipelineRoleDefaultPolicy74E3E6B6
+      Roles:
+        - Ref: webnodetspipelineRole21E2C008
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-pipeline/Role/DefaultPolicy/Resource
+  webnodetspipelineC9A009D1:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      ArtifactStore:
+        EncryptionKey:
+          Id:
+            Fn::GetAtt:
+              - webnodetspipelineArtifactsBucketEncryptionKeyDE6A5439
+              - Arn
+          Type: KMS
+        Location:
+          Ref: webnodetspipelineArtifactsBucket9C3C0A45
+        Type: S3
+      Name: webnodets-pipeline
+      PipelineType: V2
+      RoleArn:
+        Fn::GetAtt:
+          - webnodetspipelineRole21E2C008
+          - Arn
+      Stages:
+        - Actions:
+            - ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: ECR
+                Version: "1"
+              Configuration:
+                RepositoryName:
+                  Ref: webnodetsrepo25A495C6
+              Name: EcrSource
+              OutputArtifacts:
+                - Name: Artifact_Source_EcrSource
+              RoleArn:
+                Fn::GetAtt:
+                  - webnodetspipelineSourceEcrSourceCodePipelineActionRole4E554C22
+                  - Arn
+              RunOrder: 1
+          Name: Source
+        - Actions:
+            - ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: "1"
+              Configuration:
+                ProjectName:
+                  Ref: BuildProject097C5DB7
+              InputArtifacts:
+                - Name: Artifact_Source_EcrSource
+              Name: CodeBuild
+              OutputArtifacts:
+                - Name: BuildOutput
+              RoleArn:
+                Fn::GetAtt:
+                  - webnodetspipelineBuildCodeBuildCodePipelineActionRole87A8C61F
+                  - Arn
+              RunOrder: 1
+          Name: Build
+        - Actions:
+            - ActionTypeId:
+                Category: Invoke
+                Owner: AWS
+                Provider: StepFunctions
+                Version: "1"
+              Configuration:
+                StateMachineArn:
+                  Ref: StateMachine2E01A3A5
+              Name: InvokeStepFunction
+              RoleArn:
+                Fn::GetAtt:
+                  - webnodetspipelineRunTaskInvokeStepFunctionCodePipelineActionRoleCE6CE958
+                  - Arn
+              RunOrder: 1
+          Name: RunTask
+        - Actions:
+            - ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: ECS
+                Version: "1"
+              Configuration:
+                ClusterName:
+                  Ref: EcsDefaultClusterMnL3mNNYN926A5246
+                ServiceName:
+                  Fn::GetAtt:
+                    - webnodetsserviceServiceB1AC4F01
+                    - Name
+              InputArtifacts:
+                - Name: BuildOutput
+              Name: DeployAction
+              RoleArn:
+                Fn::GetAtt:
+                  - webnodetspipelineDeployDeployActionCodePipelineActionRole1680D265
+                  - Arn
+              RunOrder: 1
+          Name: Deploy
+    DependsOn:
+      - webnodetspipelineRoleDefaultPolicy74E3E6B6
+      - webnodetspipelineRole21E2C008
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-pipeline/Resource
+  webnodetspipelineSourceEcrSourceCodePipelineActionRole4E554C22:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              AWS:
+                Fn::Join:
+                  - ""
+                  - - "arn:"
+                    - Ref: AWS::Partition
+                    - :iam::345594579451:root
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-pipeline/Source/EcrSource/CodePipelineActionRole/Resource
+  webnodetspipelineSourceEcrSourceCodePipelineActionRoleDefaultPolicyF48F0142:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: ecr:DescribeImages
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - webnodetsrepo25A495C6
+                - Arn
+          - Action:
+              - s3:DeleteObject*
+              - s3:PutObject
+              - s3:PutObjectLegalHold
+              - s3:PutObjectRetention
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+              - s3:Abort*
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - webnodetspipelineArtifactsBucket9C3C0A45
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - webnodetspipelineArtifactsBucket9C3C0A45
+                        - Arn
+                    - /*
+          - Action:
+              - kms:Encrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:Decrypt
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - webnodetspipelineArtifactsBucketEncryptionKeyDE6A5439
+                - Arn
+        Version: "2012-10-17"
+      PolicyName: webnodetspipelineSourceEcrSourceCodePipelineActionRoleDefaultPolicyF48F0142
+      Roles:
+        - Ref: webnodetspipelineSourceEcrSourceCodePipelineActionRole4E554C22
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-pipeline/Source/EcrSource/CodePipelineActionRole/DefaultPolicy/Resource
+  webnodetspipelineSourceEcrSourcewebnodetsdevwebnodetspipeline24E2D4FBSourceEventRule6863FE10:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        detail-type:
+          - ECR Image Action
+        source:
+          - aws.ecr
+        detail:
+          result:
+            - SUCCESS
+          repository-name:
+            - Ref: webnodetsrepo25A495C6
+          image-tag:
+            - latest
+          action-type:
+            - PUSH
+      State: ENABLED
+      Targets:
+        - Arn:
+            Fn::Join:
+              - ""
+              - - "arn:"
+                - Ref: AWS::Partition
+                - ":codepipeline:eu-central-1:345594579451:"
+                - Ref: webnodetspipelineC9A009D1
+          Id: Target0
+          RoleArn:
+            Fn::GetAtt:
+              - webnodetspipelineEventsRole903C3CE0
+              - Arn
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-pipeline/Source/EcrSource/webnodetsdevwebnodetspipeline24E2D4FBSourceEventRule/Resource
+  webnodetspipelineEventsRole903C3CE0:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-pipeline/EventsRole/Resource
+  webnodetspipelineEventsRoleDefaultPolicyB99D8A08:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: codepipeline:StartPipelineExecution
+            Effect: Allow
+            Resource:
+              Fn::Join:
+                - ""
+                - - "arn:"
+                  - Ref: AWS::Partition
+                  - ":codepipeline:eu-central-1:345594579451:"
+                  - Ref: webnodetspipelineC9A009D1
+        Version: "2012-10-17"
+      PolicyName: webnodetspipelineEventsRoleDefaultPolicyB99D8A08
+      Roles:
+        - Ref: webnodetspipelineEventsRole903C3CE0
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-pipeline/EventsRole/DefaultPolicy/Resource
+  webnodetspipelineBuildCodeBuildCodePipelineActionRole87A8C61F:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              AWS:
+                Fn::Join:
+                  - ""
+                  - - "arn:"
+                    - Ref: AWS::Partition
+                    - :iam::345594579451:root
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-pipeline/Build/CodeBuild/CodePipelineActionRole/Resource
+  webnodetspipelineBuildCodeBuildCodePipelineActionRoleDefaultPolicyE14FC4F6:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - codebuild:BatchGetBuilds
+              - codebuild:StartBuild
+              - codebuild:StopBuild
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - BuildProject097C5DB7
+                - Arn
+        Version: "2012-10-17"
+      PolicyName: webnodetspipelineBuildCodeBuildCodePipelineActionRoleDefaultPolicyE14FC4F6
+      Roles:
+        - Ref: webnodetspipelineBuildCodeBuildCodePipelineActionRole87A8C61F
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-pipeline/Build/CodeBuild/CodePipelineActionRole/DefaultPolicy/Resource
+  webnodetspipelineRunTaskInvokeStepFunctionCodePipelineActionRoleCE6CE958:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              AWS:
+                Fn::Join:
+                  - ""
+                  - - "arn:"
+                    - Ref: AWS::Partition
+                    - :iam::345594579451:root
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-pipeline/RunTask/InvokeStepFunction/CodePipelineActionRole/Resource
+  webnodetspipelineRunTaskInvokeStepFunctionCodePipelineActionRoleDefaultPolicy7259EF07:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - states:StartExecution
+              - states:DescribeStateMachine
+            Effect: Allow
+            Resource:
+              Ref: StateMachine2E01A3A5
+          - Action: states:DescribeExecution
+            Effect: Allow
+            Resource:
+              Fn::Join:
+                - ""
+                - - "arn:"
+                  - Fn::Select:
+                      - 1
+                      - Fn::Split:
+                          - ":"
+                          - Ref: StateMachine2E01A3A5
+                  - ":states:"
+                  - Fn::Select:
+                      - 3
+                      - Fn::Split:
+                          - ":"
+                          - Ref: StateMachine2E01A3A5
+                  - ":"
+                  - Fn::Select:
+                      - 4
+                      - Fn::Split:
+                          - ":"
+                          - Ref: StateMachine2E01A3A5
+                  - ":execution:"
+                  - Fn::Select:
+                      - 6
+                      - Fn::Split:
+                          - ":"
+                          - Ref: StateMachine2E01A3A5
+                  - :*
+        Version: "2012-10-17"
+      PolicyName: webnodetspipelineRunTaskInvokeStepFunctionCodePipelineActionRoleDefaultPolicy7259EF07
+      Roles:
+        - Ref: webnodetspipelineRunTaskInvokeStepFunctionCodePipelineActionRoleCE6CE958
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-pipeline/RunTask/InvokeStepFunction/CodePipelineActionRole/DefaultPolicy/Resource
+  webnodetspipelineDeployDeployActionCodePipelineActionRole1680D265:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              AWS:
+                Fn::Join:
+                  - ""
+                  - - "arn:"
+                    - Ref: AWS::Partition
+                    - :iam::345594579451:root
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-pipeline/Deploy/DeployAction/CodePipelineActionRole/Resource
+  webnodetspipelineDeployDeployActionCodePipelineActionRoleDefaultPolicy083CEC72:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - ecs:DescribeServices
+              - ecs:DescribeTaskDefinition
+              - ecs:DescribeTasks
+              - ecs:ListTasks
+              - ecs:RegisterTaskDefinition
+              - ecs:TagResource
+              - ecs:UpdateService
+            Effect: Allow
+            Resource: "*"
+          - Action: iam:PassRole
+            Condition:
+              StringEqualsIfExists:
+                iam:PassedToService:
+                  - ec2.amazonaws.com
+                  - ecs-tasks.amazonaws.com
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - webnodetspipelineArtifactsBucket9C3C0A45
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - webnodetspipelineArtifactsBucket9C3C0A45
+                        - Arn
+                    - /*
+          - Action:
+              - kms:Decrypt
+              - kms:DescribeKey
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - webnodetspipelineArtifactsBucketEncryptionKeyDE6A5439
+                - Arn
+        Version: "2012-10-17"
+      PolicyName: webnodetspipelineDeployDeployActionCodePipelineActionRoleDefaultPolicy083CEC72
+      Roles:
+        - Ref: webnodetspipelineDeployDeployActionCodePipelineActionRole1680D265
+    Metadata:
+      aws:cdk:path: webnodets-dev/webnodets-pipeline/Deploy/DeployAction/CodePipelineActionRole/DefaultPolicy/Resource
+  BuildProjectRoleAA92C755:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: webnodets-dev/BuildProject/Role/Resource
+  BuildProjectRoleDefaultPolicy3E9F248C:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Effect: Allow
+            Resource:
+              - Fn::Join:
+                  - ""
+                  - - "arn:"
+                    - Ref: AWS::Partition
+                    - :logs:eu-central-1:345594579451:log-group:/aws/codebuild/
+                    - Ref: BuildProject097C5DB7
+              - Fn::Join:
+                  - ""
+                  - - "arn:"
+                    - Ref: AWS::Partition
+                    - :logs:eu-central-1:345594579451:log-group:/aws/codebuild/
+                    - Ref: BuildProject097C5DB7
+                    - :*
+          - Action:
+              - codebuild:CreateReportGroup
+              - codebuild:CreateReport
+              - codebuild:UpdateReport
+              - codebuild:BatchPutTestCases
+              - codebuild:BatchPutCodeCoverages
+            Effect: Allow
+            Resource:
+              Fn::Join:
+                - ""
+                - - "arn:"
+                  - Ref: AWS::Partition
+                  - :codebuild:eu-central-1:345594579451:report-group/
+                  - Ref: BuildProject097C5DB7
+                  - -*
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject
+              - s3:PutObjectLegalHold
+              - s3:PutObjectRetention
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+              - s3:Abort*
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - webnodetspipelineArtifactsBucket9C3C0A45
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - webnodetspipelineArtifactsBucket9C3C0A45
+                        - Arn
+                    - /*
+          - Action:
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:Encrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - webnodetspipelineArtifactsBucketEncryptionKeyDE6A5439
+                - Arn
+          - Action:
+              - kms:Decrypt
+              - kms:Encrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - webnodetspipelineArtifactsBucketEncryptionKeyDE6A5439
+                - Arn
+        Version: "2012-10-17"
+      PolicyName: BuildProjectRoleDefaultPolicy3E9F248C
+      Roles:
+        - Ref: BuildProjectRoleAA92C755
+    Metadata:
+      aws:cdk:path: webnodets-dev/BuildProject/Role/DefaultPolicy/Resource
+  BuildProject097C5DB7:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Cache:
+        Type: NO_CACHE
+      EncryptionKey:
+        Fn::GetAtt:
+          - webnodetspipelineArtifactsBucketEncryptionKeyDE6A5439
+          - Arn
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        EnvironmentVariables:
+          - Name: REPOSITORY_URI
+            Type: PLAINTEXT
+            Value:
+              Fn::Join:
+                - ""
+                - - Fn::Select:
+                      - 4
+                      - Fn::Split:
+                          - ":"
+                          - Fn::GetAtt:
+                              - webnodetsrepo25A495C6
+                              - Arn
+                  - .dkr.ecr.
+                  - Fn::Select:
+                      - 3
+                      - Fn::Split:
+                          - ":"
+                          - Fn::GetAtt:
+                              - webnodetsrepo25A495C6
+                              - Arn
+                  - "."
+                  - Ref: AWS::URLSuffix
+                  - /
+                  - Ref: webnodetsrepo25A495C6
+        Image: aws/codebuild/standard:7.0
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: false
+        Type: LINUX_CONTAINER
+      ServiceRole:
+        Fn::GetAtt:
+          - BuildProjectRoleAA92C755
+          - Arn
+      Source:
+        BuildSpec: |-
+          {
+            "version": "0.2",
+            "phases": {
+              "build": {
+                "commands": [
+                  "echo \"[{\\\"name\\\":\\\"webnodets-service\\\",\\\"imageUri\\\":\\\"$REPOSITORY_URI:latest\\\"}]\" > imagedefinitions.json"
+                ]
+              }
+            },
+            "artifacts": {
+              "files": "imagedefinitions.json"
+            }
+          }
+        Type: CODEPIPELINE
+    Metadata:
+      aws:cdk:path: webnodets-dev/BuildProject/Resource
+  RunFargateSecurityGroup709740F2:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: webnodets-dev/RunFargate/SecurityGroup
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic by default
+          IpProtocol: "-1"
+      VpcId:
+        Ref: EcsDefaultClusterMnL3mNNYNVpc7788A521
+    Metadata:
+      aws:cdk:path: webnodets-dev/RunFargate/SecurityGroup/Resource
+  StateMachineRoleB840431D:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: webnodets-dev/StateMachine/Role/Resource
+  StateMachineRoleDefaultPolicyDF1E6607:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: ecs:RunTask
+            Effect: Allow
+            Resource:
+              Fn::Join:
+                - ""
+                - - "arn:"
+                  - Fn::Select:
+                      - 1
+                      - Fn::Split:
+                          - ":"
+                          - Ref: webnodetsserviceTaskDefCCB9BF5E
+                  - ":"
+                  - Fn::Select:
+                      - 2
+                      - Fn::Split:
+                          - ":"
+                          - Ref: webnodetsserviceTaskDefCCB9BF5E
+                  - ":"
+                  - Fn::Select:
+                      - 3
+                      - Fn::Split:
+                          - ":"
+                          - Ref: webnodetsserviceTaskDefCCB9BF5E
+                  - ":"
+                  - Fn::Select:
+                      - 4
+                      - Fn::Split:
+                          - ":"
+                          - Ref: webnodetsserviceTaskDefCCB9BF5E
+                  - ":"
+                  - Fn::Select:
+                      - 0
+                      - Fn::Split:
+                          - /
+                          - Fn::Select:
+                              - 5
+                              - Fn::Split:
+                                  - ":"
+                                  - Ref: webnodetsserviceTaskDefCCB9BF5E
+                  - /
+                  - Fn::Select:
+                      - 1
+                      - Fn::Split:
+                          - /
+                          - Fn::Select:
+                              - 5
+                              - Fn::Split:
+                                  - ":"
+                                  - Ref: webnodetsserviceTaskDefCCB9BF5E
+                  - :*
+          - Action:
+              - ecs:StopTask
+              - ecs:DescribeTasks
+            Effect: Allow
+            Resource: "*"
+          - Action: iam:PassRole
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - webnodetsserviceTaskDefTaskRoleF9D06E8D
+                  - Arn
+              - Fn::GetAtt:
+                  - webnodetsserviceTaskDefExecutionRole0FF01F03
+                  - Arn
+          - Action:
+              - events:PutTargets
+              - events:PutRule
+              - events:DescribeRule
+            Effect: Allow
+            Resource:
+              Fn::Join:
+                - ""
+                - - "arn:"
+                  - Ref: AWS::Partition
+                  - :events:eu-central-1:345594579451:rule/StepFunctionsGetEventsForECSTaskRule
+          - Action:
+              - cloudwatch:PutManagedInsightRules
+              - cloudwatch:DeleteInsightRules
+              - cloudwatch:DescribeInsightRules
+              - states:CreateManagedRule
+              - states:DeleteManagedRule
+              - states:DescribeManagedRule
+              - states:ListManagedRules
+            Effect: Allow
+            Resource: "*"
+        Version: "2012-10-17"
+      PolicyName: StateMachineRoleDefaultPolicyDF1E6607
+      Roles:
+        - Ref: StateMachineRoleB840431D
+    Metadata:
+      aws:cdk:path: webnodets-dev/StateMachine/Role/DefaultPolicy/Resource
+  StateMachine2E01A3A5:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      DefinitionString:
+        Fn::Join:
+          - ""
+          - - '{"StartAt":"RunFargate","States":{"RunFargate":{"End":true,"Type":"Task","Resource":"arn:'
+            - Ref: AWS::Partition
+            - :states:::ecs:runTask.sync","Parameters":{"Cluster":"
+            - Fn::GetAtt:
+                - EcsDefaultClusterMnL3mNNYN926A5246
+                - Arn
+            - '","TaskDefinition":"webnodetsdevwebnodetsserviceTaskDefF7E75AA5","NetworkConfiguration":{"AwsvpcConfiguration":{"AssignPublicIp":"ENABLED","Subnets":["'
+            - Ref: EcsDefaultClusterMnL3mNNYNVpcPublicSubnet1Subnet3C273B99
+            - '","'
+            - Ref: EcsDefaultClusterMnL3mNNYNVpcPublicSubnet2Subnet95FF715A
+            - '"],"SecurityGroups":["'
+            - Fn::GetAtt:
+                - RunFargateSecurityGroup709740F2
+                - GroupId
+            - '"]}},"Overrides":{"ContainerOverrides":[{"Name":"webnodets-service","Environment":[{"Name":"WORKER_TYPE","Value":"leader"}]}]},"PropagateTags":"TASK_DEFINITION","LaunchType":"FARGATE"}}}}'
+      RoleArn:
+        Fn::GetAtt:
+          - StateMachineRoleB840431D
+          - Arn
+    DependsOn:
+      - StateMachineRoleDefaultPolicyDF1E6607
+      - StateMachineRoleB840431D
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: webnodets-dev/StateMachine/Resource
+  CDKMetadata:
+    Type: AWS::CDK::Metadata
+    Properties:
+      Analytics: v2:deflate64:H4sIAAAAAAAA/31UTW/bMAz9LbsrWpcetmvSpkXQfRhJ0GsgK4yrRJEMkUoRGP7vo2TH8bphJz5Sz9TTo+Sp/PLtTt59Uu840bvjxJpSNmtS+ii4tG1AB9msoPZoyIeLeNi7UXaDc4XQCusrlM13Xz0HH+tEvuJWgMZtrYggOJSzurZGKzKeGWo3V1Y5DbsnFSpFsIZwNhoEWIVktGVGmRnGVeepbP79dej2G+VjnkEC13OueLS+4Z2BBtmjNCnnPdegYzB0GSj/LyyqAIh/lZeuq7/WOq29Fg+iiCWLWMfSAWX+gFY+EmxUaeFWv9VmiF6bLH4gJ7BYFin8VPTMVr6riyiCOSdXh8ZLl6YAA6FT0mcz4um/ncBRnpls+qFsFB4fYW+cuW75seIdKcO+jmpPJoAFh3wNssAgPow4G9RDG5G6CfWwFUad+Pr5zoEcC89uZckdSiLDViECoXz0+ghheVJVsocPq/0OalODZV2yKXqUv+5xK44nPuQL5J4pzKxReXIZtALvZTOP3Dh716Mu3MSMc5Z0Zvu46yr2yjm2WUwZjd3dlBTBH0Dnxj3k/QjqfXQ6GYhbYpNRLjSuYjb8z+X8Vgl+8MT6c43ztk2VX5HqSPxW0cfAPmdnmFbxa2qFY1HygJ/P03v5lX8EBzRmEqIjcwK56uJvZULyayUEAAA=
+    Metadata:
+      aws:cdk:path: webnodets-dev/CDKMetadata/Default
+Outputs:
+  webnodetsserviceLoadBalancerDNS78F6F235:
+    Value:
+      Fn::GetAtt:
+        - webnodetsserviceLB7BA6DCDE
+        - DNSName
+  webnodetsserviceServiceURL7D2ED74F:
+    Value:
+      Fn::Join:
+        - ""
+        - - http://
+          - Fn::GetAtt:
+              - webnodetsserviceLB7BA6DCDE
+              - DNSName
+  LoadBalancerDNS:
+    Value:
+      Fn::Join:
+        - ""
+        - - http://
+          - Fn::GetAtt:
+              - webnodetsserviceLB7BA6DCDE
+              - DNSName
+Parameters:
+  BootstrapVersion:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /cdk-bootstrap/hnb659fds/version
+    Description: Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]
+

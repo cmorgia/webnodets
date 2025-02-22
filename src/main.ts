@@ -3,10 +3,11 @@ import { BuildSpec, PipelineProject } from 'aws-cdk-lib/aws-codebuild';
 import { Artifact, Pipeline, PipelineType } from 'aws-cdk-lib/aws-codepipeline';
 import { CodeBuildAction, EcrSourceAction, EcsDeployAction, StepFunctionInvokeAction } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Repository } from 'aws-cdk-lib/aws-ecr';
-import { ContainerImage, FargateTaskDefinition, FirelensConfigFileType, FireLensLogDriver, FirelensLogRouterType, ICluster, PropagatedTagSource, TaskDefinition } from 'aws-cdk-lib/aws-ecs';
+import { DockerImageAsset, Platform } from 'aws-cdk-lib/aws-ecr-assets';
+import { ContainerImage, FargateTaskDefinition, FirelensConfigFileType, FireLensLogDriver, FirelensLogRouterType, ICluster, LogDrivers, PropagatedTagSource, TaskDefinition } from 'aws-cdk-lib/aws-ecs';
 import { ApplicationLoadBalancedFargateService } from 'aws-cdk-lib/aws-ecs-patterns';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { Asset } from 'aws-cdk-lib/aws-s3-assets';
+import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { IntegrationPattern, StateMachine } from 'aws-cdk-lib/aws-stepfunctions';
 import { EcsFargateLaunchTarget, EcsRunTask } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { Construct } from 'constructs';
@@ -21,6 +22,12 @@ export class MyStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY
     });
 
+    const logGroup1 = new LogGroup(this, 'LogGroup1', {
+      logGroupName: '/ecs/myapp/stream1',
+      retention: RetentionDays.ONE_WEEK,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
     const srv = new ApplicationLoadBalancedFargateService(this, 'webnodets-service', {
       minHealthyPercent: 50,
       desiredCount: 1,
@@ -32,26 +39,17 @@ export class MyStack extends Stack {
             Name: 'cloudwatch',
             region: 'eu-central-1',
             log_group_name: '/aws/ecs/webnodets-service',
-            log_stream_prefix: 'webnodets-app',
-            // Configure multiple log files
-            log_key: '*',
-            extra_options: JSON.stringify({
-              "log_file_1": {
-                "path": "/path/to/first/log/file.log",
-                "stream_name": "stream1"
-              },
-              "log_file_2": {
-                "path": "/path/to/second/log/file.log",
-                "stream_name": "stream2"
-              }
-            }),
+            log_stream_prefix: 'webnodets-prefix1',
+            auto_create_group: 'true',
+            log_key: 'log',
+            path: '/path/to/first/logfile.log'
           },
         })
       },
     });
 
     // Create an asset from your local config file
-    this.addFirelensConfiguration(srv.taskDefinition);
+    this.addFirelensConfiguration(srv.taskDefinition, logGroup1);
 
     const pipeline = new Pipeline(this, 'webnodets-pipeline', {
       pipelineName: 'webnodets-pipeline',
@@ -166,26 +164,46 @@ export class MyStack extends Stack {
     });
   }
 
-  private addFirelensConfiguration(taskDef: FargateTaskDefinition) {
-    const firelensConfigAsset = new Asset(this, 'FirelensConfigAsset', {
-      path: path.join(__dirname, 'config/fluent-bit.conf')
+  private addFirelensConfiguration(taskDefinition: FargateTaskDefinition, logGroup: LogGroup) {
+    taskDefinition.addToTaskRolePolicy(new PolicyStatement({
+      effect: Effect.ALLOW,
+      actions: [
+        'logs:CreateLogStream',
+        'logs:CreateLogGroup',
+        'logs:DescribeLogStreams',
+        'logs:PutLogEvents'
+      ],
+      resources: [
+        logGroup.logGroupArn,
+        `${logGroup.logGroupArn}:*`,
+      ]
+    }));
+
+    const asset = new DockerImageAsset(this, 'MyBuildImage', {
+      directory: path.join(__dirname, 'docker/fluent'),
+      platform: Platform.LINUX_AMD64,
     });
 
-    taskDef.addFirelensLogRouter('FirelensLogRouter', {
-      image: ContainerImage.fromRegistry('amazon/aws-for-fluent-bit:latest'),
+    taskDefinition.addFirelensLogRouter('FirelensLogRouter', {
+      image: ContainerImage.fromDockerImageAsset(asset),
       firelensConfig: {
         type: FirelensLogRouterType.FLUENTBIT,
         options: {
-          configFileType: FirelensConfigFileType.S3,
-          configFileValue: `${firelensConfigAsset.s3BucketName}/${firelensConfigAsset.s3ObjectKey}`,
+          configFileType: FirelensConfigFileType.FILE,
+          configFileValue: '/fluent-bit/etc/fluent-bit.conf',
         },
       },
       // Add memory limits to ensure the router has enough resources
-      memoryReservationMiB: 50
+      memoryReservationMiB: 50,
+      logging: LogDrivers.awsLogs({
+        streamPrefix: 'firelens',
+        logGroup: new LogGroup(this, 'FirelensLogGroup', {
+          logGroupName: '/ecs/firelens',
+          retention: RetentionDays.ONE_WEEK,
+          removalPolicy: RemovalPolicy.DESTROY,
+        }),
+      }),
     });
-
-    // Grant read permissions to the task role
-    firelensConfigAsset.grantRead(taskDef.taskRole);
   }
 }
 
