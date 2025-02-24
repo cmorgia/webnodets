@@ -10,6 +10,7 @@ import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { IntegrationPattern, StateMachine } from 'aws-cdk-lib/aws-stepfunctions';
 import { EcsFargateLaunchTarget, EcsRunTask } from 'aws-cdk-lib/aws-stepfunctions-tasks';
+import { DockerImageName, ECRDeployment } from 'cdk-ecr-deployment';
 import { Construct } from 'constructs';
 import path from 'path';
 
@@ -28,6 +29,16 @@ export class MyStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
+    const image = new DockerImageAsset(this, 'appImage', {
+      directory: path.join(__dirname, 'docker/app'),
+      platform: Platform.LINUX_AMD64,
+    });
+    
+    new ECRDeployment(this, 'DeployECRImage', {
+      src: new DockerImageName(image.imageUri),
+      dest: new DockerImageName(`${ecrRepo.repositoryUri}:latest`),
+    });
+
     const srv = new ApplicationLoadBalancedFargateService(this, 'webnodets-service', {
       minHealthyPercent: 50,
       desiredCount: 1,
@@ -41,8 +52,7 @@ export class MyStack extends Stack {
             log_group_name: '/aws/ecs/webnodets-service',
             log_stream_prefix: 'webnodets-prefix1',
             auto_create_group: 'true',
-            log_key: 'log',
-            path: '/path/to/first/logfile.log'
+            log_key: '*',
           },
         })
       },
@@ -179,7 +189,7 @@ export class MyStack extends Stack {
       ]
     }));
 
-    const asset = new DockerImageAsset(this, 'MyBuildImage', {
+    const asset = new DockerImageAsset(this, 'fluentImage', {
       directory: path.join(__dirname, 'docker/fluent'),
       platform: Platform.LINUX_AMD64,
     });

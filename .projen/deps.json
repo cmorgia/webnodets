@@ -76,6 +76,11 @@
       "type": "runtime"
     },
     {
+      "name": "cdk-ecr-deployment",
+      "version": "3.1.9",
+      "type": "runtime"
+    },
+    {
       "name": "constructs",
       "version": "^10.0.5",
       "type": "runtime"

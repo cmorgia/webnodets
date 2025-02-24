@@ -7,7 +7,7 @@ export ECR_SERVICE=${ACCOUNT_ID}.dkr.ecr.eu-central-1.amazonaws.com
 export REPO_URI=${ECR_SERVICE}/${REPO_NAME}:${VERSION_TAG}
 
 export SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-export DOCKER_DIR=$SCRIPT_DIR/../src/docker
+export DOCKER_DIR=$SCRIPT_DIR/../src/docker/app
 
 cd $DOCKER_DIR
 
