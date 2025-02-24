@@ -36,13 +36,13 @@ export class IAMResourcePatcherAspect implements IAspect {
           node.addPropertyOverride('Path', '/approles/cr/');
           node.addPropertyOverride(
             'PermissionsBoundary',
-            `arn:aws:iam::${accountId}:policy/CustomResourcePermissionsBoundary-V1`
+            `arn:aws:iam::${accountId}:policy/CustomResourcePermissionsBoundary-V1`,
           );
         } else {
           node.addPropertyOverride('Path', '/approles/');
           node.addPropertyOverride(
             'PermissionsBoundary',
-            `arn:aws:iam::${accountId}:policy/AppPermissionsBoundary-V1`
+            `arn:aws:iam::${accountId}:policy/AppPermissionsBoundary-V1`,
           );
         }
       }

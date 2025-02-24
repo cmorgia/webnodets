@@ -1,3 +1,4 @@
+import path from 'path';
 import { App, CfnOutput, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { BuildSpec, PipelineProject } from 'aws-cdk-lib/aws-codebuild';
 import { Artifact, Pipeline, PipelineType } from 'aws-cdk-lib/aws-codepipeline';
@@ -12,7 +13,6 @@ import { IntegrationPattern, StateMachine } from 'aws-cdk-lib/aws-stepfunctions'
 import { EcsFargateLaunchTarget, EcsRunTask } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { DockerImageName, ECRDeployment } from 'cdk-ecr-deployment';
 import { Construct } from 'constructs';
-import path from 'path';
 
 export class MyStack extends Stack {
   constructor(scope: Construct, id: string, props: StackProps = {}) {
@@ -20,7 +20,7 @@ export class MyStack extends Stack {
 
     const ecrRepo = new Repository(this, 'webnodets-repo', {
       repositoryName: 'webnodets-repo',
-      removalPolicy: RemovalPolicy.DESTROY
+      removalPolicy: RemovalPolicy.DESTROY,
     });
 
     const logGroup1 = new LogGroup(this, 'LogGroup1', {
@@ -33,7 +33,7 @@ export class MyStack extends Stack {
       directory: path.join(__dirname, 'docker/app'),
       platform: Platform.LINUX_AMD64,
     });
-    
+
     new ECRDeployment(this, 'DeployECRImage', {
       src: new DockerImageName(image.imageUri),
       dest: new DockerImageName(`${ecrRepo.repositoryUri}:latest`),
@@ -54,7 +54,7 @@ export class MyStack extends Stack {
             auto_create_group: 'true',
             log_key: '*',
           },
-        })
+        }),
       },
     });
 
@@ -63,21 +63,21 @@ export class MyStack extends Stack {
 
     const pipeline = new Pipeline(this, 'webnodets-pipeline', {
       pipelineName: 'webnodets-pipeline',
-      pipelineType: PipelineType.V2
+      pipelineType: PipelineType.V2,
     });
 
     const sourceOutput = new Artifact();
     const buildOutput = new Artifact('BuildOutput');
-    
+
     pipeline.addStage({
       stageName: 'Source',
-      actions: [ 
+      actions: [
         new EcrSourceAction({
           actionName: 'EcrSource',
           repository: ecrRepo,
           output: sourceOutput,
         }),
-       ],
+      ],
     });
 
     const buildProject = new PipelineProject(this, 'BuildProject', {
@@ -86,7 +86,7 @@ export class MyStack extends Stack {
         phases: {
           build: {
             commands: [
-              'echo "[{\\"name\\":\\"webnodets-service\\",\\"imageUri\\":\\"$REPOSITORY_URI:latest\\"}]" > imagedefinitions.json'
+              'echo "[{\\"name\\":\\"webnodets-service\\",\\"imageUri\\":\\"$REPOSITORY_URI:latest\\"}]" > imagedefinitions.json',
             ],
           },
         },
@@ -128,7 +128,7 @@ export class MyStack extends Stack {
     });
 
     new CfnOutput(this, 'LoadBalancerDNS', {
-      value: `http://${srv.loadBalancer.loadBalancerDnsName}`
+      value: `http://${srv.loadBalancer.loadBalancerDnsName}`,
     });
   }
 
@@ -140,7 +140,7 @@ export class MyStack extends Stack {
       assignPublicIp: true,
       containerOverrides: [{
         containerDefinition: taskDefinition.defaultContainer!,
-        environment: [{ name: 'WORKER_TYPE', value: "leader" }],
+        environment: [{ name: 'WORKER_TYPE', value: 'leader' }],
       }],
       launchTarget: new EcsFargateLaunchTarget(),
       propagatedTagSource: PropagatedTagSource.TASK_DEFINITION,
@@ -160,7 +160,7 @@ export class MyStack extends Stack {
         'states:DescribeManagedRule',
         'states:ListManagedRules',
       ],
-      resources: ['*']
+      resources: ['*'],
     }));
 
     pipeline.addStage({
@@ -181,12 +181,12 @@ export class MyStack extends Stack {
         'logs:CreateLogStream',
         'logs:CreateLogGroup',
         'logs:DescribeLogStreams',
-        'logs:PutLogEvents'
+        'logs:PutLogEvents',
       ],
       resources: [
         logGroup.logGroupArn,
         `${logGroup.logGroupArn}:*`,
-      ]
+      ],
     }));
 
     const asset = new DockerImageAsset(this, 'fluentImage', {
