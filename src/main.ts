@@ -1,8 +1,6 @@
-import path from 'path';
 import { App, CfnOutput, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
-import { BuildSpec, PipelineProject } from 'aws-cdk-lib/aws-codebuild';
 import { Artifact, Pipeline, PipelineType } from 'aws-cdk-lib/aws-codepipeline';
-import { CodeBuildAction, EcrSourceAction, EcsDeployAction, StepFunctionInvokeAction } from 'aws-cdk-lib/aws-codepipeline-actions';
+import { CommandsAction, EcsDeployAction, StepFunctionInvokeAction } from 'aws-cdk-lib/aws-codepipeline-actions';
 import { Repository } from 'aws-cdk-lib/aws-ecr';
 import { DockerImageAsset, Platform } from 'aws-cdk-lib/aws-ecr-assets';
 import { ContainerImage, FargateTaskDefinition, FirelensConfigFileType, FireLensLogDriver, FirelensLogRouterType, ICluster, LogDrivers, PropagatedTagSource, TaskDefinition } from 'aws-cdk-lib/aws-ecs';
@@ -11,32 +9,19 @@ import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { IntegrationPattern, StateMachine } from 'aws-cdk-lib/aws-stepfunctions';
 import { EcsFargateLaunchTarget, EcsRunTask } from 'aws-cdk-lib/aws-stepfunctions-tasks';
-import { DockerImageName, ECRDeployment } from 'cdk-ecr-deployment';
 import { Construct } from 'constructs';
+import path from 'path';
 
 export class MyStack extends Stack {
   constructor(scope: Construct, id: string, props: StackProps = {}) {
     super(scope, id, props);
 
-    const ecrRepo = new Repository(this, 'webnodets-repo', {
-      repositoryName: 'webnodets-repo',
-      removalPolicy: RemovalPolicy.DESTROY,
-    });
+    const ecrRepo = Repository.fromRepositoryName(this, 'EcrRepo', 'webnodets-repo');
 
     const logGroup1 = new LogGroup(this, 'LogGroup1', {
       logGroupName: '/ecs/myapp/stream1',
       retention: RetentionDays.ONE_WEEK,
       removalPolicy: RemovalPolicy.DESTROY,
-    });
-
-    const image = new DockerImageAsset(this, 'appImage', {
-      directory: path.join(__dirname, 'docker/app'),
-      platform: Platform.LINUX_AMD64,
-    });
-
-    new ECRDeployment(this, 'DeployECRImage', {
-      src: new DockerImageName(image.imageUri),
-      dest: new DockerImageName(`${ecrRepo.repositoryUri}:latest`),
     });
 
     const srv = new ApplicationLoadBalancedFargateService(this, 'webnodets-service', {
@@ -66,52 +51,7 @@ export class MyStack extends Stack {
       pipelineType: PipelineType.V2,
     });
 
-    const sourceOutput = new Artifact();
-    const buildOutput = new Artifact('BuildOutput');
-
-    pipeline.addStage({
-      stageName: 'Source',
-      actions: [
-        new EcrSourceAction({
-          actionName: 'EcrSource',
-          repository: ecrRepo,
-          output: sourceOutput,
-        }),
-      ],
-    });
-
-    const buildProject = new PipelineProject(this, 'BuildProject', {
-      buildSpec: BuildSpec.fromObject({
-        version: '0.2',
-        phases: {
-          build: {
-            commands: [
-              'echo "[{\\"name\\":\\"webnodets-service\\",\\"imageUri\\":\\"$REPOSITORY_URI:latest\\"}]" > imagedefinitions.json',
-            ],
-          },
-        },
-        artifacts: {
-          files: 'imagedefinitions.json',
-        },
-      }),
-      environmentVariables: {
-        REPOSITORY_URI: {
-          value: ecrRepo.repositoryUri,
-        },
-      },
-    });
-
-    pipeline.addStage({
-      stageName: 'Build',
-      actions: [
-        new CodeBuildAction({
-          actionName: 'CodeBuild',
-          project: buildProject,
-          input: sourceOutput,
-          outputs: [buildOutput],
-        }),
-      ],
-    });
+    const artifacts = new Artifact('BuildOutput');
 
     this.addLeaderToPipeline(srv.cluster, srv.service.taskDefinition, pipeline);
 
@@ -119,10 +59,19 @@ export class MyStack extends Stack {
     pipeline.addStage({
       stageName: 'Deploy',
       actions: [
+        new CommandsAction({
+          actionName: 'Prepare deployment',
+          runOrder: 1,
+          input: artifacts,
+          commands: [
+            'echo "[{\\"name\\":\\"webnodets-service\\",\\"imageUri\\":\\"$REPOSITORY_URI:latest\\"}]" > imagedefinitions.json',
+          ],
+        }),
         new EcsDeployAction({
           actionName: 'DeployAction',
+          runOrder: 2,
           service: srv.service,
-          input: buildOutput,
+          input: artifacts,
         }),
       ],
     });
